@@ -9,7 +9,7 @@
  * It's not the full list from the spec, just the ones
  * I consider useful.
  */
-const TXN_TYPES = new Set([
+const ofx_TXN_TYPES = new Set([
   'CREDIT', // Generic credit
   'DEBIT',  // Generic debit
   'XFER',   // Transfer
@@ -71,7 +71,7 @@ NEWFILEUID:NONE
  * a single call to ofxHeader().
  * 
  * Parameters:
- *   type: OFX bank transaction type (see TXN_TYPES at top for list)
+ *   type: OFX bank transaction type (see ofx_TXN_TYPES at top for list)
  *   date: date on which the transaction was posted to the account
  *   amount: amount of transaction
  *   id: unique transaction ID issued by financial institution (max 255 chars)
@@ -80,7 +80,7 @@ NEWFILEUID:NONE
  */
 function ofx_makeTxn(type, date, amount, id, name, memo) {
   type = type.toUpperCase();
-  if (!TXN_TYPES.has(type)) {
+  if (!ofx_TXN_TYPES.has(type)) {
     throw new Error('Given transaction type ${type} is not valid.');
   }
   ret = `
