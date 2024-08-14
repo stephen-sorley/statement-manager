@@ -3,6 +3,11 @@
  * Maintains an authenticated HTTP connection with PayPal, and allows you to
  * make HTTP requests across it.
  * 
+ * Requires the following two script properties to be set manually in your
+ * Google script settings:
+ *   paypal_client_id
+ *   paypal_client_secret
+ * 
  * Main functions
  * --------------
  *   
