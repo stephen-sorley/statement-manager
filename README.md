@@ -31,12 +31,12 @@ Here are the reasons why this solution is better than importing CSV files into Q
      CSV imports do not support automatic duplicate detection or unique ID's, so the user is required
      to manually verify that the imported transactions are not duplicates, leading to errors.
 
-  5. Both PayPal and Stripe put the gross payment amount and the fee amount on the same line of the CSV
+  4. Both PayPal and Stripe put the gross payment amount and the fee amount on the same line of the CSV
      file. If you need to keep track of fees as expenditures, you can't just import the net amount - you
      need to have the fee payment listed on a separate line of the CSV file so that it's imported as a
      separate transaction. This requires manually editing the CSV files or writing your own tool to do so.
 
-  6. Stripe does not offer any way to download all balance-affecting transactions in a single CSV file.
+  5. Stripe does not offer any way to download all balance-affecting transactions in a single CSV file.
      You have to download payments in one file, and payouts (transfers to your linked bank account) in a
      separate file. This leads to either doing two separate imports into QuickBooks, or writing your own
      tool to combine the two files.
