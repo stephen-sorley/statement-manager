@@ -18,8 +18,8 @@ function test() {
     name: 'Google Bot',
     noReply: true,
     body: `Monthly statement covering dates:
-${startDatePretty}
-${endDatePretty}`,
+${startDatePretty} (Eastern Time)
+${endDatePretty} (Eastern Time)`,
     attachments: ofx_makeBlob(str, "test.ofx")
   });
 }

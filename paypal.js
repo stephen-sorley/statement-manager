@@ -83,44 +83,71 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
   );
 
   for (const txn of res.txns) {
-    const date = txn.transaction_updated_date ?? txn.transaction_initiation_date;
-    const code = txn.transaction_event_code;
-    const amountGross = Number(txn.transaction_amount.value);
-    const amountFee = txn.fee_amount ? Number(txn.fee_amount.value) : 0;
+    const ti = txn.transaction_info;
+    const pi = txn.payer_info;
 
-    let memo = '';
-    if (txn.transaction_subject){
-      memo += 'subject: ' + txn.transaction_subject + '   ';
+    const date = ti.transaction_updated_date ?? ti.transaction_initiation_date;
+    const code = ti.transaction_event_code;
+    const amountGross = Number(ti.transaction_amount.value);
+    const amountFee = ti.fee_amount ? Number(ti.fee_amount.value) : 0;
+    const txnTypeName = paypal_ofxTxnTypeName_(code, amountGross);
+
+    let name;
+    let memo = [];
+    if (pi && pi.payer_name) {
+      if (pi.email_address) {
+        memo.push(pi.email_address);
+      }
+      memo.push(ti.transaction_id);
+
+      // Prefer org name.
+      name = (pi.payer_name.alternate_full_name ?? "").trim();
+      // If not provided, use individual name.
+      if (!name) {
+        name = ((pi.payer_name.given_name ?? "") + ' '
+          + (pi.payer_name.surname ?? "")).trim();
+      }
+      // If that wasn't present either, use the name of the transaction type.
+      if (!name) {
+        name = txnTypeName;
+      } else {
+        memo.push(txnTypeName);
+      }
+    } else {
+      name = txnTypeName;
+      memo.push(ti.transaction_id);
     }
-    memo += 'initiated: ' + txn.transaction_initiation_date + '   ';
-    if (txn.paypal_account_id) {
-      memo += 'initiated by account: ' + txn.paypal_account_id + '   ';
+    
+    if (ti.transaction_subject){
+      memo.push(ti.transaction_subject);
     }
-    if (txn.paypal_reference_id) {
-      memo += txn.paypal_reference_id_type + ' ref: ';
-      memo += txn.paypal_reference_id + '   ';
+    if (ti.paypal_account_id) {
+      memo.push('PAYER:' + ti.paypal_account_id);
     }
-    if (txn.bank_reference_id) {
-      memo += 'bank id: ' + txn.bank_reference_id + '   ';
+    if (ti.paypal_reference_id) {
+      memo.push(ti.paypal_reference_id_type + ':' + ti.paypal_reference_id);
+    }
+    if (ti.bank_reference_id) {
+      memo.push('BANK:' + ti.bank_reference_id);
     }
 
     ofx += ofx_makeTxn(
       paypal_ofxTxnCode_(code, amountGross),
       date,
       amountGross,
-      txn.transaction_id,
-      code + ': ' + paypal_ofxTxnName_(code, amountGross),
-      memo
+      ti.transaction_id,
+      name,
+      memo.join(' // ')
     );
 
     if (amountFee != 0) {
       ofx += ofx_makeTxn(
         "FEE",
-        txn.transaction_updated_date,
+        date,
         amountFee,
-        txn.transaction_id + '-1',
-        'payment processing fee',
-        'fee for transaction ' + txn.transaction_id
+        ti.transaction_id + '-1',
+        'PayPal',
+        'processing fee for:' + ti.transaction_id
       );
     }
   }
@@ -177,6 +204,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
           // Query parameters:
           'start_date': new Date(startDate).toISOString(),
           'end_date': new Date(chunkDate).toISOString(),
+          'fields': 'transaction_info,payer_info',
           'transaction_currency': currency,
           'page': page
         })
@@ -240,16 +268,17 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
   }
 
   // Collapse all transactions into a flat array, instead of an array of arrays.
-  // Move one level deeper in the JSON hierarchy to the transaction_info obj.
-  out.txns = results.flat().map((res) => res.transaction_info);
+  out.txns = results.flat();
 
   // Sort txns in-place in ascending order, by updated date. Use initiation date
   // if updated date is not present.
   out.txns.sort((a,b) => {
+    const ia = a.transaction_info;
+    const ib = b.transaction_info;
     const ta = 
-      Date.parse(a.transaction_updated_date ?? a.transaction_initiation_date);
+      Date.parse(ia.transaction_updated_date ?? ia.transaction_initiation_date);
     const tb = 
-      Date.parse(b.transaction_updated_date ?? b.transaction_initiation_date);
+      Date.parse(ib.transaction_updated_date ?? ib.transaction_initiation_date);
     return ta - tb;
   });
 
@@ -262,6 +291,8 @@ function paypal_ofxTxnCode_(code, amount) {
   // 'T0400' -> group is '04'
   const group = code.substring(1,3);
   switch(group) {
+    case '00':
+      return 'PAYMENT';
     case '01': // non-payment-related fee
       return 'FEE';
     case '03':
@@ -278,7 +309,7 @@ function paypal_ofxTxnCode_(code, amount) {
 }
 
 
-function paypal_ofxTxnName_(code, amount) {
+function paypal_ofxTxnTypeName_(code, amount) {
   switch(code) {
     case 'T0002': return 'recurring payment';
     case 'T0013': return 'donation payment';

@@ -10,11 +10,12 @@
  * I consider useful.
  */
 const ofx_TXN_TYPES = new Set([
-  'CREDIT', // Generic credit
-  'DEBIT',  // Generic debit
-  'XFER',   // Transfer
-  'FEE',    // FI fee
-  'INT',    // Interest earned or paid
+  'CREDIT',  // Generic credit
+  'DEBIT',   // Generic debit
+  'XFER',    // Transfer
+  'PAYMENT', // Electronic Payment
+  'FEE',     // FI fee
+  'INT',     // Interest earned or paid
 ]);
 
 /* Returns the beginning of an OFX file as a string.
@@ -47,11 +48,11 @@ OLDFILEUID:NONE
 NEWFILEUID:NONE
 
 <OFX>
-<SONRS>
+<SIGNONMSGSRSV1><SONRS>
 <STATUS><CODE>0<SEVERITY>INFO</STATUS>
 <DTSERVER>${ofx_date_(fileDate)}
 <LANGUAGE>ENG
-</SONRS>
+</SONRS></SIGNONMSGSRSV1>
 <BANKMSGSRSV1><STMTTRNRS><TRNUID>0<STATUS><CODE>0<SEVERITY>INFO</STATUS>
 <STMTRS>
   <CURDEF>${currency.substring(0,3)}
@@ -116,11 +117,12 @@ function ofx_makeFooter(balanceAmount, asOfDate) {
   return `
   </BANKTRANLIST>
   <LEDGERBAL>
-      <BALAMT>${balanceAmount.toFixed(2)}
-      <DTASOF>${ofx_date_(asOfDate)}
+    <BALAMT>${balanceAmount.toFixed(2)}
+    <DTASOF>${ofx_date_(asOfDate)}
   </LEDGERBAL>
 </STMTRS>
-</STMTTRNRS></BANKMSGSRSV1></OFX>`;
+</STMTTRNRS></BANKMSGSRSV1>
+</OFX>`;
 }
 
 
