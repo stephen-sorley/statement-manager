@@ -5,14 +5,14 @@
 Provides a schedulable service that pulls transaction data from PayPal and Stripe, converts it to
 [OFX v1.0.2](https://www.financialdataexchange.org/common/Uploaded%20files/OFX%20files/ofx1.0.2spec.zip)
 format, and emails an OFX file to a list of recipients. These OFX files can then be easily imported into
-[QuickBooks Online](https://qbo.intuit.com/app/newfileupload).
+[QuickBooks Online (QBO)](https://qbo.intuit.com/app/newfileupload).
 
 This code runs on Google's scripting platform ([Google Apps Script](https://script.google.com)).
 
 ### Rationale
 
-This is helpful because QuickBooks Online (QBO) does not provide an automated way to import bank transactions
-from Stripe and PayPal, and Stripe and PayPal do not provide transaction data downloads in OFX format (only
+This is helpful because QuickBooks does not provide an automated way to import bank transactions from
+Stripe and PayPal, and Stripe and PayPal do not provide transaction data downloads in OFX format (only
 CSV).
 
 Here are the reasons why this solution is better than importing CSV files into QuickBooks:
