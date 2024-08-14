@@ -1,131 +1,85 @@
 /* paypal.js
  *
- * Functions that connect to PayPal's REST API, pull transaction data from it,
- * and convert those transactions into an OFX file.
+ * Get transactions and balances over PayPal's REST API, then translate them
+ * into OFX.
  * 
+ * Paypal's transaction history only updates every 3 hours, so a transaction
+ * may take up to that long to show up in the history. Therefore you should
+ * wait to request a report until at least three hours after that report's
+ * end date.
+ * 
+ * Requires the following two script properties to be set manually in your
+ * Google script settings:
+ *   paypal_client_id
+ *   paypal_client_secret
+ * 
+ * You can generate these by making a new app with your PayPal account here:
+ * https://developer.paypal.com/dashboard/applications/live
+ * 
+ * This code only requires the "Transaction search" feature. I recommend
+ * creating your app credential for this script with all other features
+ * disabled, to enhance security.
+ */
+
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ * Constants and internal state.
  */
 
 const baseUrl = 'https://api-m.paypal.com';
-//const baseUrl = 'https://api-m.sandbox.paypal.com';
+//const baseUrl = 'https://api-m.sandbox.paypal.com'; //for debugging only
 
-const oneHour_ms = 1 * 60*60*1000;
-
-let defaultHeaders_; // set by _paypalRefreshToken()
-let accessToken_; // set by _paypalRefreshToken()
-let accssTokenExpires_; //set by _paypalRefreshToken()
-let secret_; // set by _paypalRefreshToken()
+const MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
 
 
-// NOTE: paypal report end date is INCLUSIVE at 1 SECOND precision.
-function paypal_getTransactions_(startDate, endDate) {
-  paypal_refreshToken_();
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ * Public Functions.
+ */
 
-  let start = new Date(startDate);
-  let end = new Date(endDate);
+/* paypal_makeReportOfx
+ *
+ * Produce a PayPal bank statement containing all balance-affecting transacions
+ * over the given time interval.
+ * 
+ * Currently, this function only supports producing reports for one currency at
+ * a time.
+ * 
+ * Note that PayPal only keeps transaction data for 3 years, requests for data
+ * earlier than this may fail.
+ * 
+ * Parameters:
+ *   startDate: datetime where the report begins.
+ *   endDate: datetime where the report ends (exclusive). Default: current time
+ *   currency: only report txns & balances done in this currency. Default: USD
+ * 
+ * Returns:
+ *   a string representing the report, formatted as OFX data.
+ */
+function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
+  /*
+    OFX reports: time interval DOES NOT include endDate.
+    PayPal: time interval DOES include endDate, with 1 second resolution.
 
-  console.log(`Start: ${start.toISOString()}, End: ${end.toISOString()}`);
+    Therefore we need to subtract 1 second from the OFX endDate before asking
+    PayPal to generate a report, so that it uses the correct time range.
+  */
+  res = paypal_getTransactions_(
+    startDate,
+    new Date(endDate).getTime() - 1*1000,
+    currency
+  );
 
-  const out = {};
-
-  let page = 1;
-  let totalPages = 1;
-  let requests = [];
-  let results = [];
-  do {
-    const options = {
-      url: main_buildUrl(baseUrl + '/v1/reporting/transactions', {
-        // Query parameters:
-        'start_date': start.toISOString(),
-        'end_date': end.toISOString(),
-        'transaction_currency': "USD",
-        'page': page
-      }),
-      contentType: 'application/json',
-      headers: defaultHeaders_,
-    };
-
-    if (page === 1) {
-      const resp = paypal_urlFetch(options.url, options);
-      const data = JSON.parse(resp.getContentText());
-      console.log(JSON.stringify(data, null, 2));
-      
-      totalPages = data.total_pages;
-      
-      out.accountId = data.account_number;
-      out.reportDate = data.last_refreshed_datetime;
-      out.startDate = data.start_date;
-      out.endDate = data.end_date;
-      
-      if (data.transaction_details.length > 0) {
-        results.push(data.transaction_details);
-      }
-    } else {
-      requests.push(options);
-    }
-    page++;
-  } while(page <= totalPages);
-
-  if (requests.length > 0) {
-    // There are additional pages of results after the first, do them in
-    // parallel for improved speed.
-    const resps = paypal_urlFetchAll(requests);
-    for (const resp of resps) {
-      data = JSON.parse(resp.getContentText());
-      results.push(data.transaction_details);
-    }
-  }
-
-  // Get balance as of the end date.
-  const url = main_buildUrl(baseUrl + '/v1/reporting/balances', {
-    // Query parameters:
-    as_of_time: out.endDate,
-    currency_code: "USD"
-  });
-  const options = {
-    contentType: 'application/json',
-    headers: defaultHeaders_,
-  };
-  const resp = paypal_urlFetch(url, options);
-  const data = JSON.parse(resp.getContentText());
-  console.log(JSON.stringify(data, null, 2));
-
-  out.balance = Number(data.balances[0].total_balance.value);
-
-  // If there were no transactions in the reporting period, return early.
-  if (results.length == 0) {
-    console.log(out); //DEBUG_161
-    return out;
-  }
-
-  // Collapse all transactions into a flat array, instead of an array of arrays.
-  // Move one level deeper in the JSON hierarchy to the transaction_info obj.
-  out.txns = results.flat().map((res) => res.transaction_info);
-
-  // Sort txns in-place in ascending order, by update date.
-  out.txns.sort((a,b) => {
-    const ta = 
-      Date.parse(a.transaction_updated_date ?? a.transaction_initiation_date);
-    const tb = 
-      Date.parse(b.transaction_updated_date ?? b.transaction_initiation_date);
-    return ta - tb;
-  });
-
-  console.log(out); //DEBUG_161
-  return out;
-}
-
-
-function paypal_makeReportOfx(startDate='2024-07-30T10:24:10-0000', endDate=Date.now()) {
-  res = paypal_getTransactions_(startDate, endDate);
+  // Convert returned time interval back from a PayPal interval definition
+  // (inclusive end) to an OFX definition (exclusive end).
+  res.endDate = new Date(res.endDate).getTime() + 1*1000;
   
   ofx = ofx_makeHeader(
     res.reportDate,
     res.startDate,
-    // add 1 second to end date, because OFX end dates are exclusive, but
-    // paypal's are inclusive to 1-second precision.
-    new Date(Date.parse(res.endDate) + 1*1000),
+    res.endDate,
     "PayPal",
-    res.accountId
+    res.accountId,
+    currency
   );
 
   for (const txn of res.txns) {
@@ -134,9 +88,13 @@ function paypal_makeReportOfx(startDate='2024-07-30T10:24:10-0000', endDate=Date
     const amountGross = Number(txn.transaction_amount.value);
     const amountFee = txn.fee_amount ? Number(txn.fee_amount.value) : 0;
 
-    let memo = 'initiated ' + txn.transaction_initiation_date + '   ';
+    let memo = '';
+    if (txn.transaction_subject){
+      memo += 'subject: ' + txn.transaction_subject + '   ';
+    }
+    memo += 'initiated: ' + txn.transaction_initiation_date + '   ';
     if (txn.paypal_account_id) {
-      memo += 'initiated by account ' + txn.paypal_account_id + '   ';
+      memo += 'initiated by account: ' + txn.paypal_account_id + '   ';
     }
     if (txn.paypal_reference_id) {
       memo += txn.paypal_reference_id_type + ' ref: ';
@@ -147,11 +105,11 @@ function paypal_makeReportOfx(startDate='2024-07-30T10:24:10-0000', endDate=Date
     }
 
     ofx += ofx_makeTxn(
-      paypal_ofxTxnCode(code, amountGross),
+      paypal_ofxTxnCode_(code, amountGross),
       date,
       amountGross,
       txn.transaction_id,
-      code + ': ' + paypal_ofxTxnName(code, amountGross),
+      code + ': ' + paypal_ofxTxnName_(code, amountGross),
       memo
     );
 
@@ -169,12 +127,138 @@ function paypal_makeReportOfx(startDate='2024-07-30T10:24:10-0000', endDate=Date
 
   ofx += ofx_makeFooter(res.balance, res.endDate);
 
-  console.log(ofx);
+  console.log(ofx); //DEBUG_161
   return ofx;
 }
 
 
-function paypal_ofxTxnCode(code, amount) {
+
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ * Internal helper functions.
+ */
+
+// Paypal report end date is INCLUSIVE with 1 SECOND precision.
+// This function expects the report interval to be specified in PayPal format.
+function paypal_getTransactions_(startDate, endDate, currency='USD') {
+  startDate = new Date(startDate).getTime();
+  endDate = new Date(endDate).getTime();
+
+  if (startDate > endDate) {
+    throw new Error('paypal_getTransactions_: invalid dates, startDate is later'
+      + ' than endDate.');
+  }
+
+  const out = {
+    reportDate: 0,
+    startDate: Number.MAX_SAFE_INTEGER,
+    endDate: 0,
+    balance: undefined,
+  };
+  let results = [];
+
+  // PayPal only lets us pull transaction data in 31 day chunks.
+  // Divide full report interval into chunks, make http requests for each.
+  let chunkDate = startDate;
+  do {
+    // Use as big a chunk as we can (max interval, or end of report, whichever's
+    // smaller).
+    chunkDate = Math.min(endDate, chunkDate + MAX_INTERVAL_ms);
+
+    console.log(`Chunk: ${new Date(startDate).toISOString()} to `
+      + `${new Date(chunkDate).toISOString()}`); //DEBUG_161
+
+    // Request transactions for this chunk. Response may require multiple pages.
+    let page = 1;
+    let totalPages = 1;
+    let requests = [];
+    do {
+      const request = {
+        url: main_buildUrl(baseUrl + '/v1/reporting/transactions', {
+          // Query parameters:
+          'start_date': new Date(startDate).toISOString(),
+          'end_date': new Date(chunkDate).toISOString(),
+          'transaction_currency': currency,
+          'page': page
+        })
+      };
+  
+      if (page === 1) {
+        const resp = paypal_http_fetch(request.url, request);
+        const data = JSON.parse(resp.getContentText());
+        console.log(JSON.stringify(data, null, 2));
+        
+        totalPages = data.total_pages;
+        
+        out.accountId = data.account_number;
+        out.reportDate = Math.max(
+          out.reportDate, Date.parse(data.last_refreshed_datetime));
+        out.startDate = Math.min(
+          out.startDate, Date.parse(data.start_date));
+        out.endDate = Math.max(
+          out.endDate, Date.parse(data.end_date));
+        
+        if (data.transaction_details.length > 0) {
+          results.push(data.transaction_details);
+        }
+      } else {
+        requests.push(request);
+      }
+      page++;
+    } while(page <= totalPages);
+  
+    if (requests.length > 0) {
+      // There are additional pages of results after the first, do them in
+      // parallel for improved speed.
+      const resps = paypal_http_fetchAll(requests);
+      for (const resp of resps) {
+        data = JSON.parse(resp.getContentText());
+        results.push(data.transaction_details);
+      }
+    }
+
+    // For PayPal, end datetime of a reporting interval is inclusive with 1
+    // second resolution. So need to add a second for the next interval's start.
+    startDate = chunkDate + 1000;
+  } while (startDate < endDate); // Exit loop if past the end of the report interval.
+
+  // Get balance as of the end date, save to output.
+  const url = main_buildUrl(baseUrl + '/v1/reporting/balances', {
+    // Query parameters:
+    as_of_time: new Date(out.endDate).toISOString(),
+    currency_code: currency
+  });
+  const resp = paypal_http_fetch(url);
+  const data = JSON.parse(resp.getContentText());
+  console.log(JSON.stringify(data, null, 2));
+
+  out.balance = Number(data.balances[0].total_balance.value);
+
+  // If there were no transactions in the reporting period, return early.
+  if (results.length == 0) {
+    console.log(JSON.stringify(out, null, 2)); //DEBUG_161
+    return out;
+  }
+
+  // Collapse all transactions into a flat array, instead of an array of arrays.
+  // Move one level deeper in the JSON hierarchy to the transaction_info obj.
+  out.txns = results.flat().map((res) => res.transaction_info);
+
+  // Sort txns in-place in ascending order, by updated date. Use initiation date
+  // if updated date is not present.
+  out.txns.sort((a,b) => {
+    const ta = 
+      Date.parse(a.transaction_updated_date ?? a.transaction_initiation_date);
+    const tb = 
+      Date.parse(b.transaction_updated_date ?? b.transaction_initiation_date);
+    return ta - tb;
+  });
+
+  console.log(JSON.stringify(out, null, 2)); //DEBUG_161
+  return out;
+}
+
+
+function paypal_ofxTxnCode_(code, amount) {
   // 'T0400' -> group is '04'
   const group = code.substring(1,3);
   switch(group) {
@@ -193,7 +277,8 @@ function paypal_ofxTxnCode(code, amount) {
   return (amount < 0.0)? 'DEBIT' : 'CREDIT';
 }
 
-function paypal_ofxTxnName(code, amount) {
+
+function paypal_ofxTxnName_(code, amount) {
   switch(code) {
     case 'T0002': return 'recurring payment';
     case 'T0013': return 'donation payment';
@@ -208,137 +293,4 @@ function paypal_ofxTxnName(code, amount) {
   }
 
   return (amount < 0.0)? 'account debit' : 'account credit';
-}
-
-
-function paypal_refreshToken_(force = false) {
-  if (!force && accessToken_) {
-    console.log('using access token in memory');
-    return;
-  }
-  
-  defaultHeaders_ = {
-    'Accept': 'application/json',
-    'Accept-Language': 'en_US',
-  }
-
-  const ps = PropertiesService.getScriptProperties();
-
-  if (!secret_) {
-    // Get client ID, secret, and any stored access token from property storage.
-    // (this particular credential is set up to only allow read access to PayPal)
-    const props = ps.getProperties();
-    secret_ = props.paypal_client_id + ':' + props.paypal_client_secret;
-    secret_ = Utilities.base64Encode(secret_);
-
-    // If there's a stored access token and we've still got at least an hour
-    // before it's supposed to expire, use it.
-    if (!force && props.paypal_access_token && props.paypal_access_token_expires) {
-      if (props.paypal_access_token_expires > (Date.now() - oneHour_ms)) {
-        accessToken_ = props.paypal_access_token;
-        accessTokenExpires_ = props.paypal_access_token_expires;
-        defaultHeaders_['Authorization'] = 'Bearer ' + accessToken_;
-        console.log(`using access token from properties: ${accessToken_}`); //DEBUG_161
-        return;
-      }
-    }
-  }
-
-  defaultHeaders_['Authorization'] = 'Basic ' + secret_;
-
-  const requestTime = Date.now();
-  const resp = UrlFetchApp.fetch(baseUrl + '/v1/oauth2/token', {
-    method: 'post',
-    contentType: 'application/x-www-form-urlencoded',
-    headers: defaultHeaders_,
-    payload: {
-     grant_type: 'client_credentials',
-    },
-  });
-
-  data = JSON.parse(resp.getContentText());
-
-  accessToken_ = data.access_token;
-  accessTokenExpires_ = requestTime + data.expires_in * 1000;
-  ps.setProperties({
-    paypal_access_token: accessToken_,
-    paypal_access_token_expires: accessTokenExpires_,
-  })
-
-  defaultHeaders_['Authorization'] = 'Bearer ' + accessToken_;
-
-  console.log(`Got new access token, expires ${new Date(accessTokenExpires_).toISOString()}`);
-}
-
-
-function paypal_urlFetch(url, options={}) {
-  // Silence HTTP exceptions so we can handle bad access tokens, but
-  // record whether or not the caller wanted them.
-  const muteRequested = options.muteHttpExceptions ?? false;
-  options.muteHttpExceptions = true;
-
-  let resp = UrlFetchApp.fetch(url, options);
-  
-  // If our access token has expired, refresh token and try once more.
-  if (resp.getResponseCode() == 401) {
-    paypal_refreshToken_(true);
-    resp = UrlFetchApp.fetch(url, options);
-  }
-
-  // If caller didn't want to mute HTTP exceptions and there is one, throw an error.
-  const code = resp.getResponseCode();
-  if (!muteRequested && code >= 400) {
-    console.error(JSON.stringify(JSON.parse(resp.getContentText()), null, 2));
-    throw new Error(`HTTP request to ${url} `
-      + `failed with status code ${code}.`);
-  }
-
-  return resp;
-}
-
-
-function paypal_urlFetchAll(requests) {
-  if (!requests || requests.length == 0) {
-    return;
-  }
-  // Silence HTTP exceptions so we can handle bad access tokens, but
-  // record whether or not the caller wanted them.
-  for (const request of requests) {
-    request.muteRequested = request.muteHttpExceptions ?? false;
-    request.muteHttpExceptions = true;
-  }
-
-  let resps = UrlFetchApp.fetchAll(requests);
-
-  let needsRefresh = false;
-  let startIndex = requests.length;
-  for (const [i, resp] of resps.entries()) {
-    if (resp.getResponseCode() == 401) {
-      needsRefresh = true;
-      startIndex = i;
-      break;
-    }
-  }
-  
-  // If our access token has expired, refresh token and try all the
-  // requests from the failure onward over again.
-  if (needsRefresh) {
-    paypal_refreshToken_(true);
-    let new_resps = UrlFetchApp.fetchAll(requests.slice(i,requests.length));
-    // Replace the old responses that we redid with new ones.
-    resps.splice(i, new_resps.length, ...new_resps);
-  }
-
-  // If caller didn't want to mute HTTP exceptions and there is one, throw an error.
-  for (const [i, resp] of resps.entries()) {
-    const muteRequested = requests[i].muteRequested;
-    const code = resp.getResponseCode();
-    if (!muteRequested && code >= 400) {
-      console.error(JSON.stringify(JSON.parse(resp.getContentText()), null, 2));
-      throw new Error(`HTTP request to ${requests[i].url} `
-        + `failed with status code ${code}.`);
-    }
-  }
-
-  return resps;
 }

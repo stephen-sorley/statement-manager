@@ -33,7 +33,8 @@ const ofx_TXN_TYPES = new Set([
  *    startDate = "2024-01-01T00:00:00-0400"
  *    endDate = "2024-02-01T00:00:00-0400"
  */
-function ofx_makeHeader(fileDate, startDate, endDate, bankId='00', acctId='00') {
+function ofx_makeHeader(fileDate, startDate, endDate,
+  bankId='00', acctId='00', currency='USD') {
     ret =
 `OFXHEADER:100
 DATA:OFXSGML
@@ -53,7 +54,7 @@ NEWFILEUID:NONE
 </SONRS>
 <BANKMSGSRSV1><STMTTRNRS><TRNUID>0<STATUS><CODE>0<SEVERITY>INFO</STATUS>
 <STMTRS>
-  <CURDEF>USD
+  <CURDEF>${currency.substring(0,3)}
   <BANKACCTFROM>
     <BANKID>${ofx_escape_(bankId.substring(0,9))}
     <ACCTID>${ofx_escape_(acctId.substring(0,22))}

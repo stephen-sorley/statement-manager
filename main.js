@@ -4,21 +4,11 @@ function doGet() {
 }
 
 
-
-
-
-
-
-
 function test() {
-  const startDate = "2024-01-01T00:00:00-0400";
-  const endDate = "2024-02-01T00:00:00-0400";
-  let str = ofx_makeHeader(Date.now(), startDate, endDate);
+  const startDate = "2024-06-01T00:00:00-0400";
+  const endDate = "2024-08-01T00:00:00-0400";
 
-  str += ofx_makeTxn('CREDIT','2024-01-03T8:56:32-0400', 3.56,
-    'e8764269-940b-4f88-acbe-3f0aa6f9cd40', 'a name!', 'a memo, too!');
-
-  str += ofx_makeFooter(103.56, '2024-01-31T23:59:59-0400');
+  const str = paypal_makeReportOfx(startDate, endDate);
 
   const startDatePretty = new Date(startDate).toLocaleString('en-US','America/New York');
   const endDatePretty = new Date(endDate).toLocaleString('en-US','America/New York');
@@ -30,7 +20,7 @@ function test() {
     body: `Monthly statement covering dates:
 ${startDatePretty}
 ${endDatePretty}`,
-    attachments: ofxBlob(str, "test.ofx")
+    attachments: ofx_makeBlob(str, "test.ofx")
   });
 }
 
