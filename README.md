@@ -7,7 +7,7 @@ Provides a schedulable service that pulls transaction data from PayPal and Strip
 format, and emails an OFX file to a list of recipients. These OFX files can then be easily imported into
 [QuickBooks Online](https://qbo.intuit.com/app/newfileupload).
 
-This code runs on Google's scripting platform (Google Apps Script).
+This code runs on Google's scripting platform ([Google Apps Script](https://script.google.com)).
 
 ### Rationale
 
