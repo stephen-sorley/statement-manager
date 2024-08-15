@@ -55,7 +55,7 @@ function paypal_http_fetch(url, options={}) {
   // passed in by user.
   options.contentType = options.contentType ?? stripe_defaultContentType_;
   options.headers = options.headers ?? {};
-  for (const [header, defaultValue] of Object.entries(stripe_defaultHeaders_)) {
+  for (const [header, defaultValue] of Object.entries(paypal_defaultHeaders_)) {
     options.headers[header] = options.headers[header] ?? defaultValue;
   }
 
@@ -102,7 +102,7 @@ function paypal_http_fetchAll(requests) {
     request.options.contentType =
       request.options.contentType ?? stripe_defaultContentType_;
     request.options.headers = request.options.headers ?? {};
-    for (const [header, defaultValue] of Object.entries(stripe_defaultHeaders_)) {
+    for (const [header, defaultValue] of Object.entries(paypal_defaultHeaders_)) {
       request.options.headers[header] =
         request.options.headers[header] ?? defaultValue;
     }
@@ -181,20 +181,20 @@ function paypal_http_guaranteeToken_(force = false) {
     paypal_accessTokenExpires_ =
       new Date(props.paypal_access_token_expires ?? 0).getTime();
     if (!force && paypal_accessToken_ && paypal_accessTokenExpires_>(Date.now()-PAYPAL_ONEHOUR_ms)) {
-      stripe_defaultHeaders_['Authorization'] = 'Bearer ' + paypal_accessToken_;
+      paypal_defaultHeaders_['Authorization'] = 'Bearer ' + paypal_accessToken_;
       console.log('loaded access token from properties, expires '
         + new Date(paypal_accessTokenExpires_));
       return;
     }
   }
 
-  stripe_defaultHeaders_['Authorization'] = 'Basic ' + paypal_secret_;
+  paypal_defaultHeaders_['Authorization'] = 'Basic ' + paypal_secret_;
 
   const requestTime = Date.now();
   const resp = UrlFetchApp.fetch(PAYPAL_BASEURL + '/v1/oauth2/token', {
     method: 'post',
     contentType: 'application/x-www-form-urlencoded',
-    headers: stripe_defaultHeaders_,
+    headers: paypal_defaultHeaders_,
     payload: {
       grant_type: 'client_credentials',
     },
@@ -209,7 +209,7 @@ function paypal_http_guaranteeToken_(force = false) {
     paypal_access_token_expires: new Date(paypal_accessTokenExpires_).toISOString(),
   })
 
-  stripe_defaultHeaders_['Authorization'] = 'Bearer ' + paypal_accessToken_;
+  paypal_defaultHeaders_['Authorization'] = 'Bearer ' + paypal_accessToken_;
 
   console.log('received new access token from PayPal, expires '
     + new Date(paypal_accessTokenExpires_)
