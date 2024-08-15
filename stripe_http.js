@@ -82,6 +82,13 @@ function stripe_http_fetch(url, options={}) {
       + `failed with status code ${code}.`);
   }
 
+  // Try parsing to JSON.
+  try {
+    resp.json = JSON.parse(resp.getContentText());
+  } catch(e) {
+    resp.json = null;
+  }
+
   return resp;
 }
   
