@@ -9,7 +9,7 @@ function test() {
   const endDate = "2024-08-01T00:00:00-0400";
 
   const paypal = paypal_makeReportOfx(startDate, endDate);
-  //const stripe = stripe_makeReportOfx(startDate, endDate);
+  const stripe = stripe_makeReportOfx(startDate, endDate);
 
   const startDatePretty = new Date(startDate).toLocaleString('en-US','America/New York');
   const endDatePretty = new Date(endDate).toLocaleString('en-US','America/New York');
@@ -23,7 +23,7 @@ ${startDatePretty} (Eastern Time)
 ${endDatePretty} (Eastern Time)`,
     attachments: [
       ofx_makeBlob(paypal, "paypal.ofx"),
-      //ofx_makeBlob(stripe, "stripe.ofx"),
+      ofx_makeBlob(stripe, "stripe.ofx"),
     ],
   });
 }
