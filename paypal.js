@@ -135,7 +135,7 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
       paypal_ofxTxnCode_(code, amountGross),
       date,
       amountGross,
-      ti.transaction_id,
+      ti.transaction_id + '-' + code,
       name,
       memo.join(' // ')
     );
