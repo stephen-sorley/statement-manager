@@ -53,7 +53,7 @@ function paypal_http_fetch(url, options={}) {
 
   // Use internal defaults for contentType and headers, unless specifically
   // passed in by user.
-  options.contentType = options.contentType ?? stripe_defaultContentType_;
+  options.contentType = options.contentType ?? paypal_defaultContentType_;
   options.headers = options.headers ?? {};
   for (const [header, defaultValue] of Object.entries(paypal_defaultHeaders_)) {
     options.headers[header] = options.headers[header] ?? defaultValue;
@@ -100,7 +100,7 @@ function paypal_http_fetchAll(requests) {
     // Use internal defaults for contentType and headers, unless specifically
     // passed in by user.
     request.options.contentType =
-      request.options.contentType ?? stripe_defaultContentType_;
+      request.options.contentType ?? paypal_defaultContentType_;
     request.options.headers = request.options.headers ?? {};
     for (const [header, defaultValue] of Object.entries(paypal_defaultHeaders_)) {
       request.options.headers[header] =
