@@ -3,7 +3,7 @@
  * Maintains an authenticated HTTP connection with PayPal, and allows you to
  * make HTTP requests across it.
  * 
- * Requires the following two script properties to be set manually in your
+ * Requires the following script properties to be set manually in your
  * Google script settings:
  *   paypal_client_id
  *   paypal_client_secret
@@ -27,20 +27,20 @@
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  * Constants and internal state.
  */
-const ONEHOUR_ms = 1 * 60*60*1000;
+const PAYPAL_ONEHOUR_ms = 1 * 60*60*1000;
 
-const defaultContentType_ = 'application/json';
+const paypal_defaultContentType_ = 'application/json';
 
-const defaultHeaders_ = {
+const paypal_defaultHeaders_ = {
   'Accept': 'application/json',
   'Accept-Language': 'en_US',
   //Authorization header added by paypal_http_guaranteeToken_().
 }
 
 // These are all set or modified by paypal_http_guaranteeToken_().
-let accessToken_;
-let accessTokenExpires_;
-let secret_;
+let paypal_accessToken_;
+let paypal_accessTokenExpires_;
+let paypal_secret_;
 
 
 
@@ -53,9 +53,9 @@ function paypal_http_fetch(url, options={}) {
 
   // Use internal defaults for contentType and headers, unless specifically
   // passed in by user.
-  options.contentType = options.contentType ?? defaultContentType_;
+  options.contentType = options.contentType ?? stripe_defaultContentType_;
   options.headers = options.headers ?? {};
-  for (const [header, defaultValue] of Object.entries(defaultHeaders_)) {
+  for (const [header, defaultValue] of Object.entries(stripe_defaultHeaders_)) {
     options.headers[header] = options.headers[header] ?? defaultValue;
   }
 
@@ -100,9 +100,9 @@ function paypal_http_fetchAll(requests) {
     // Use internal defaults for contentType and headers, unless specifically
     // passed in by user.
     request.options.contentType =
-      request.options.contentType ?? defaultContentType_;
+      request.options.contentType ?? stripe_defaultContentType_;
     request.options.headers = request.options.headers ?? {};
-    for (const [header, defaultValue] of Object.entries(defaultHeaders_)) {
+    for (const [header, defaultValue] of Object.entries(stripe_defaultHeaders_)) {
       request.options.headers[header] =
         request.options.headers[header] ?? defaultValue;
     }
@@ -163,38 +163,38 @@ function paypal_http_fetchAll(requests) {
  *   force: if true, ignore stored tokens and get a fresh one. Default: false
  */
 function paypal_http_guaranteeToken_(force = false) {
-  if (!force && accessToken_) {
+  if (!force && paypal_accessToken_) {
     return;
   }
 
   const ps = PropertiesService.getScriptProperties();
 
-  if (!secret_) {
+  if (!paypal_secret_) {
     // Get client ID, secret, and any stored access token from property storage.
     const props = ps.getProperties();
-    secret_ = props.paypal_client_id + ':' + props.paypal_client_secret;
-    secret_ = Utilities.base64Encode(secret_);
+    paypal_secret_ = props.paypal_client_id + ':' + props.paypal_client_secret;
+    paypal_secret_ = Utilities.base64Encode(paypal_secret_);
 
     // If there's a stored access token and we've still got at least an hour
     // before it's supposed to expire, use it.
-    accessToken_ = props.paypal_access_token;
-    accessTokenExpires_ =
+    paypal_accessToken_ = props.paypal_access_token;
+    paypal_accessTokenExpires_ =
       new Date(props.paypal_access_token_expires ?? 0).getTime();
-    if (!force && accessToken_ && accessTokenExpires_>(Date.now()-ONEHOUR_ms)) {
-      defaultHeaders_['Authorization'] = 'Bearer ' + accessToken_;
+    if (!force && paypal_accessToken_ && paypal_accessTokenExpires_>(Date.now()-PAYPAL_ONEHOUR_ms)) {
+      stripe_defaultHeaders_['Authorization'] = 'Bearer ' + paypal_accessToken_;
       console.log('loaded access token from properties, expires '
-        + new Date(accessTokenExpires_));
+        + new Date(paypal_accessTokenExpires_));
       return;
     }
   }
 
-  defaultHeaders_['Authorization'] = 'Basic ' + secret_;
+  stripe_defaultHeaders_['Authorization'] = 'Basic ' + paypal_secret_;
 
   const requestTime = Date.now();
-  const resp = UrlFetchApp.fetch(baseUrl + '/v1/oauth2/token', {
+  const resp = UrlFetchApp.fetch(PAYPAL_BASEURL + '/v1/oauth2/token', {
     method: 'post',
     contentType: 'application/x-www-form-urlencoded',
-    headers: defaultHeaders_,
+    headers: stripe_defaultHeaders_,
     payload: {
       grant_type: 'client_credentials',
     },
@@ -202,26 +202,26 @@ function paypal_http_guaranteeToken_(force = false) {
 
   data = JSON.parse(resp.getContentText());
 
-  accessToken_ = data.access_token;
-  accessTokenExpires_ = requestTime + data.expires_in * 1000;
+  paypal_accessToken_ = data.access_token;
+  paypal_accessTokenExpires_ = requestTime + data.expires_in * 1000;
   ps.setProperties({
-    paypal_access_token: accessToken_,
-    paypal_access_token_expires: new Date(accessTokenExpires_).toISOString(),
+    paypal_access_token: paypal_accessToken_,
+    paypal_access_token_expires: new Date(paypal_accessTokenExpires_).toISOString(),
   })
 
-  defaultHeaders_['Authorization'] = 'Bearer ' + accessToken_;
+  stripe_defaultHeaders_['Authorization'] = 'Bearer ' + paypal_accessToken_;
 
   console.log('received new access token from PayPal, expires '
-    + new Date(accessTokenExpires_)
+    + new Date(paypal_accessTokenExpires_)
   );
 }
 
 
 // Clear internal connection state. Useful only for debugging.
 function paypal_http_reset() {
-  secret_ = undefined;
-  accessToken_ = undefined;
-  accessTokenExpires_ = undefined;
+  paypal_secret_ = undefined;
+  paypal_accessToken_ = undefined;
+  paypal_accessTokenExpires_ = undefined;
 
   const ps = PropertiesService.getScriptProperties();
   ps.deleteProperty('paypal_access_token');

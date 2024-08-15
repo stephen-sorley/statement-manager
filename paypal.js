@@ -8,7 +8,7 @@
  * wait to request a report until at least three hours after that report's
  * end date.
  * 
- * Requires the following two script properties to be set manually in your
+ * Requires the following script properties to be set manually in your
  * Google script settings:
  *   paypal_client_id
  *   paypal_client_secret
@@ -26,10 +26,10 @@
  * Constants and internal state.
  */
 
-const baseUrl = 'https://api-m.paypal.com';
-//const baseUrl = 'https://api-m.sandbox.paypal.com'; //for debugging only
+const PAYPAL_BASEURL = 'https://api-m.paypal.com';
+//const PAYPAL_BASEURL = 'https://api-m.sandbox.paypal.com'; //for debugging only
 
-const MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
+const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -189,7 +189,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
   do {
     // Use as big a chunk as we can (max interval, or end of report, whichever's
     // smaller).
-    chunkDate = Math.min(endDate, chunkDate + MAX_INTERVAL_ms);
+    chunkDate = Math.min(endDate, chunkDate + PAYPAL_MAX_INTERVAL_ms);
 
     console.log(`Chunk: ${new Date(startDate).toISOString()} to `
       + `${new Date(chunkDate).toISOString()}`); //DEBUG_161
@@ -200,7 +200,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
     let requests = [];
     do {
       const request = {
-        url: main_buildUrl(baseUrl + '/v1/reporting/transactions', {
+        url: main_buildUrl(PAYPAL_BASEURL + '/v1/reporting/transactions', {
           // Query parameters:
           'start_date': new Date(startDate).toISOString(),
           'end_date': new Date(chunkDate).toISOString(),
@@ -250,7 +250,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
   } while (startDate < endDate); // Exit loop if past the end of the report interval.
 
   // Get balance as of the end date, save to output.
-  const url = main_buildUrl(baseUrl + '/v1/reporting/balances', {
+  const url = main_buildUrl(PAYPAL_BASEURL + '/v1/reporting/balances', {
     // Query parameters:
     as_of_time: new Date(out.endDate).toISOString(),
     currency_code: currency
