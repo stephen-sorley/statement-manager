@@ -61,6 +61,9 @@ function stripe_test() {
  *   balance: balance as of the report end date
  *   ofx: a string representing the report, formatted as OFX data.
  * }
+ * 
+ * Returns 'null' if the start date was so new that Stripe doesn't have data
+ * available yet. Stripe's publishing interval may be up to 24 hours.
  */
 function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
   
@@ -69,6 +72,12 @@ function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     endDate,
     currency
   );
+
+  // If the start date was so new that there's no data available, pass the
+  // null back to this function's caller as well.
+  if (!res) {
+    return res;
+  }
 
   ofx = ofx_makeHeader(
     res.reportDate,
@@ -163,15 +172,19 @@ function stripe_getTransactions_(startDate, endDate, currency='USD') {
   endDate = stripe_timestamp(endDate);
 
   if (startDate > endDate) {
-    throw new Error('stripe_getTransactions_: invalid dates, startDate is later'
-      + ' than endDate.');
+    throw new Error('invalid dates, startDate is later than endDate.');
   }
 
   // Check to see what date range data is available for.
   const avail = stripe_getAvailableDates_();
 
+  // If start date is so new that Stripe doesn't have any data available yet.
+  if (startDate >= avail.endDate) {
+    return null; // indicates to caller that no data is available yet
+  }
+
+  // Clamp report date range to available interval.
   endDate = Math.min(endDate, avail.endDate);
-  startDate = Math.min(startDate, endDate);
 
   const out = {
     startDate: startDate * 1000,
@@ -240,12 +253,14 @@ function stripe_getAvailableDates_() {
     + STRIPE_REPORT
   );
 
-  console.log('Available Dates\n' + JSON.stringify(resp.json, null, 2));
-
-  return {
+  const out = {
     startDate: resp.json.data_available_start,
     endDate: resp.json.data_available_end,
-  };
+  }
+
+  console.log('Available Dates\n' + JSON.stringify(out, null, 2));
+
+  return out;
 }
 
 
