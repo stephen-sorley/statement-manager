@@ -174,7 +174,7 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
 <html>
 <head>
 <style>
- table {
+  table {
     border: solid 12px ${targetColor};
     border-collapse: collapse;
     margin-top: 25px;
@@ -195,9 +195,9 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
   td {
     padding-right: 10px;
   }
-body {
-  font-size: 120%;
-}
+  body {
+    font-size: 120%;
+  }
 </style>
 </head>
 <body>
