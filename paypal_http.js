@@ -80,6 +80,13 @@ function paypal_http_fetch(url, options={}) {
       + `failed with status code ${code}.`);
   }
 
+  // Try parsing to JSON.
+  try {
+    resp.json = JSON.parse(resp.getContentText());
+  } catch(e) {
+    resp.json = null;
+  }
+
   return resp;
 }
   
@@ -129,12 +136,21 @@ function paypal_http_fetchAll(requests) {
     resps.splice(i, new_resps.length, ...new_resps);
   }
 
-  // If caller didn't want to mute HTTP exceptions and there is one, throw an error.
+  
   for (const [i, resp] of resps.entries()) {
+    // Try parsing to JSON.
+    try {
+      resp.json = JSON.parse(resp.getContentText());
+    } catch(e) {
+      resp.json = null;
+    }
+
+    // If the caller left HTTP exceptions enabled and we saw a bad response
+    // code, throw an error.
     const muteRequested = requests[i].muteRequested;
     const code = resp.getResponseCode();
     if (!muteRequested && code >= 400) {
-      console.error(JSON.stringify(JSON.parse(resp.getContentText()), null, 2));
+      console.error(JSON.stringify(resp.json, null, 2));
       throw new Error(`HTTP request to ${requests[i].url} `
         + `failed with status code ${code}.`);
     }
