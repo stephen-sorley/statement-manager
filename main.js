@@ -201,13 +201,14 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
 </style>
 </head>
 <body>
-<h2 style="color:${targetColor}">New Report from Statement Manager</h2>
+<h2 style="color:${targetColor}">New Report from Statement Manager for ${targetPretty}</h2>
 
 <table>
   <tr><th>Target</th><td><a href="${targetUrl}">${targetPretty}</a></td></tr>
   <tr><th>Start</th><td>${startDatePretty}</td></tr>
   <tr><th>End</th><td>${endDatePretty}</td></tr>
   <tr><th>Balance</th><td>${money.format(res.balance)}</td></tr>
+  <tr><th>Transactions</th><td>${res.numTxns}</td></tr>
 </table>
 
 <p>The data used to produce this report was current as of ${reportDatePretty}.

@@ -57,7 +57,8 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  *   startDate: report start date (adjusted for data availability)
  *   endDate: report end date (adjusted for data availability)
  *   balance: balance as of the report end date
- *   ofx: a string representing the report, formatted as OFX data.
+ *   numTxns: number of transactions that occurred in the report interval
+ *   ofx: a string representing the full report, formatted as OFX data.
  * }
  * 
  * Returns 'null' if the start date was so new that PayPal doesn't have data
@@ -173,6 +174,7 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     startDate: res.startDate,
     endDate: res.endDate,
     balance: res.balance,
+    numTxns: res.txns.length,
     ofx: ofx,
   };
 }
