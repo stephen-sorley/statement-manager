@@ -59,6 +59,9 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  *   balance: balance as of the report end date
  *   ofx: a string representing the report, formatted as OFX data.
  * }
+ * 
+ * Returns 'null' if the start date was so new that PayPal doesn't have data
+ * available yet. PayPal's publishing interval may be up to 3 hours.
  */
 function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
   /*
@@ -73,6 +76,12 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     new Date(endDate).getTime() - 1*1000,
     currency
   );
+
+  // If the start date was so new that there's no data available, pass the
+  // null back to this function's caller as well.
+  if (!res) {
+    return res;
+  }
 
   // Convert returned time interval back from a PayPal interval definition
   // (inclusive end) to an OFX definition (exclusive end).
@@ -209,37 +218,42 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
     let totalPages = 1;
     let requests = [];
     do {
-      const request = {
-        url: main_buildUrl(PAYPAL_BASEURL + '/v1/reporting/transactions', {
-          // Query parameters:
-          'start_date': new Date(startDate).toISOString(),
-          'end_date': new Date(chunkDate).toISOString(),
-          'fields': 'transaction_info,payer_info',
-          'transaction_currency': currency,
-          'page': page
-        })
-      };
+      const url = main_buildUrl(PAYPAL_BASEURL + '/v1/reporting/transactions', {
+        // Query parameters:
+        'start_date': new Date(startDate).toISOString(),
+        'end_date': new Date(chunkDate).toISOString(),
+        'fields': 'transaction_info,payer_info',
+        'transaction_currency': currency,
+        'page': page
+      });
   
       if (page === 1) {
-        const resp = paypal_http_fetch(request.url, request);
-        const data = JSON.parse(resp.getContentText());
-        console.log(JSON.stringify(data, null, 2));
+        const resp = paypal_http_fetch(url, {muteHttpExceptions: true});
         
-        totalPages = data.total_pages;
+        if (resp.getResponseCode() >= 400) {
+          // Detect case where the start date is so new that PayPal doesn't have
+          // any data available yet.
+          if (resp.json.name === "INVALID_REQUEST"
+            && resp.json.message.toLowerCase().includes("start date")) {
+            return null; // indicates to caller that no data is available yet
+          }
+        }
+
+        totalPages = resp.json.total_pages;
         
-        out.accountId = data.account_number;
+        out.accountId = resp.json.account_number;
         out.reportDate = Math.max(
-          out.reportDate, Date.parse(data.last_refreshed_datetime));
+          out.reportDate, new Date(resp.json.last_refreshed_datetime).getTime());
         out.startDate = Math.min(
-          out.startDate, Date.parse(data.start_date));
+          out.startDate, new Date(resp.json.start_date).getTime());
         out.endDate = Math.max(
-          out.endDate, Date.parse(data.end_date));
+          out.endDate, new Date(resp.json.end_date).getTime());
         
-        if (data.transaction_details.length > 0) {
-          results.push(data.transaction_details);
+        if (resp.json.transaction_details.length > 0) {
+          results.push(resp.json.transaction_details);
         }
       } else {
-        requests.push(request);
+        requests.push({url: url});
       }
       page++;
     } while(page <= totalPages);
@@ -249,8 +263,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
       // parallel for improved speed.
       const resps = paypal_http_fetchAll(requests);
       for (const resp of resps) {
-        data = JSON.parse(resp.getContentText());
-        results.push(data.transaction_details);
+        results.push(resp.json.transaction_details);
       }
     }
 
@@ -266,19 +279,16 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
     currency_code: currency
   });
   const resp = paypal_http_fetch(url);
-  const data = JSON.parse(resp.getContentText());
-  console.log(JSON.stringify(data, null, 2));
 
-  out.balance = Number(data.balances[0].total_balance.value);
-
-  // If there were no transactions in the reporting period, return early.
-  if (results.length == 0) {
-    console.log(JSON.stringify(out, null, 2)); //DEBUG_161
-    return out;
-  }
+  out.balance = Number(resp.json.balances[0].total_balance.value);
 
   // Collapse all transactions into a flat array, instead of an array of arrays.
   out.txns = results.flat();
+
+  // If there were no transactions in the reporting period, return early.
+  if (results.length == 0) {
+    return out;
+  }
 
   // Sort txns in-place in ascending order, by updated date. Use initiation date
   // if updated date is not present.
@@ -286,13 +296,18 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
     const ia = a.transaction_info;
     const ib = b.transaction_info;
     const ta = 
-      Date.parse(ia.transaction_updated_date ?? ia.transaction_initiation_date);
+      new Date(ia.transaction_updated_date ?? ia.transaction_initiation_date)
+        .getTime();
     const tb = 
-      Date.parse(ib.transaction_updated_date ?? ib.transaction_initiation_date);
+      new Date(ib.transaction_updated_date ?? ib.transaction_initiation_date)
+        .getTime();
     return ta - tb;
   });
 
-  console.log(JSON.stringify(out, null, 2)); //DEBUG_161
+  for (txn of out.txns) {
+    console.log(JSON.stringify(txn, null, 2));
+  }
+
   return out;
 }
 

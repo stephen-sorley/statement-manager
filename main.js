@@ -92,7 +92,9 @@ function main_doSinceLast_(targetPretty) {
   // Store the end date of the returned report, so we know where to start the
   // next one. Note that end dates are EXCLUSIVE, so there's no chance of
   // duplicates here.
-  ps.setProperty(target + SINCE_PREV_START_KEY, new Date(res.endDate));
+  if (res) {
+    ps.setProperty(target + SINCE_PREV_START_KEY, new Date(res.endDate));
+  }
 }
 
 
@@ -132,6 +134,15 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
       targetUrl = 'https://dashboard.stripe.com';
       targetColor = '#635BFF';
       break;
+  }
+
+  // If the start date was so new that there's no data available, pass the
+  // null back to this function's caller as well. Don't send any emails or
+  // throw any errors - just wait for the next trigger.
+  if (!res) {
+    console.log(`Skipping ... startDate ${main_prettyDate_(startDate)} `
+      + 'was too new, no new data has been published yet.');
+    return res;
   }
 
 
