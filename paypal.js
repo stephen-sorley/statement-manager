@@ -52,8 +52,13 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  *   endDate: datetime where the report ends (exclusive). Default: current time
  *   currency: only report txns & balances done in this currency. Default: USD
  * 
- * Returns:
- *   a string representing the report, formatted as OFX data.
+ * Returns: {
+ *   reportDate: data current as of this date
+ *   startDate: report start date (adjusted for data availability)
+ *   endDate: report end date (adjusted for data availability)
+ *   balance: balance as of the report end date
+ *   ofx: a string representing the report, formatted as OFX data.
+ * }
  */
 function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
   /*
@@ -154,8 +159,13 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
 
   ofx += ofx_makeFooter(res.balance, res.endDate);
 
-  console.log(ofx); //DEBUG_161
-  return ofx;
+  return {
+    reportDate: res.reportDate,
+    startDate: res.startDate,
+    endDate: res.endDate,
+    balance: res.balance,
+    ofx: ofx,
+  };
 }
 
 
