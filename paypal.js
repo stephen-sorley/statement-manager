@@ -190,8 +190,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
   endDate = new Date(endDate).getTime();
 
   if (startDate > endDate) {
-    throw new Error('paypal_getTransactions_: invalid dates, startDate is later'
-      + ' than endDate.');
+    throw new Error('invalid dates, startDate is later than endDate.');
   }
 
   const out = {
