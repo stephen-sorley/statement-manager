@@ -2,7 +2,8 @@
 
 # Statement Manager
 
-Provides a schedulable service that pulls transaction data from PayPal and Stripe, converts it to
+Provides a schedulable service that pulls transaction data from [PayPal](https://developer.paypal.com/api/rest/)
+and [Stripe](https://docs.stripe.com/api), converts it to
 [OFX v1.0.2](https://www.financialdataexchange.org/common/Uploaded%20files/OFX%20files/ofx1.0.2spec.zip)
 format, and emails an OFX file to a list of recipients. These OFX files can then be easily imported into
 [QuickBooks Online (QBO)](https://qbo.intuit.com/app/newfileupload).
