@@ -30,12 +30,6 @@ const STRIPE_BASEURL = 'https://api.stripe.com';
 const STRIPE_REPORT = 'ending_balance_reconciliation.summary.1';
 
 
-function stripe_test() {
-  const startDate = "2024-06-01T00:00:00-0400";
-  const endDate = "2024-08-01T00:00:00-0400";
-  stripe_makeReportOfx(startDate, endDate);
-}
-
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
  * Public Functions.
@@ -195,11 +189,6 @@ function stripe_getTransactions_(startDate, endDate, currency='USD') {
     balance: null,
     txns: null,
   };
-
-  console.log(
-  `  start: ${new Date(out.startDate)}
-  end: ${new Date(out.endDate)},
-  report: ${new Date(out.reportDate)}`); //DEBUG_161
 
   // Start generating an ending balance report at our new end date.
   // Wait to pull the report till after we pull transaction history,
