@@ -23,7 +23,7 @@
  * Constants and internal state.
  */
 
-const STRIPE_RESPONSE_SIZE = 2; //25
+const STRIPE_RESPONSE_SIZE = 25;
 
 const STRIPE_BASEURL = 'https://api.stripe.com';
 
