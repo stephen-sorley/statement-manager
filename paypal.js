@@ -205,14 +205,10 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
 
   // PayPal only lets us pull transaction data in 31 day chunks.
   // Divide full report interval into chunks, make http requests for each.
-  let chunkDate = startDate;
   do {
     // Use as big a chunk as we can (max interval, or end of report, whichever's
     // smaller).
-    chunkDate = Math.min(endDate, chunkDate + PAYPAL_MAX_INTERVAL_ms);
-
-    console.log(`Chunk: ${new Date(startDate).toISOString()} to `
-      + `${new Date(chunkDate).toISOString()}`); //DEBUG_161
+    const chunkEndDate = Math.min(endDate, startDate + PAYPAL_MAX_INTERVAL_ms);
 
     // Request transactions for this chunk. Response may require multiple pages.
     let page = 1;
@@ -222,7 +218,7 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
       const url = main_buildUrl(PAYPAL_BASEURL + '/v1/reporting/transactions', {
         // Query parameters:
         'start_date': new Date(startDate).toISOString(),
-        'end_date': new Date(chunkDate).toISOString(),
+        'end_date': new Date(chunkEndDate).toISOString(),
         'fields': 'transaction_info,payer_info',
         'transaction_currency': currency,
         'page': page
@@ -270,8 +266,8 @@ function paypal_getTransactions_(startDate, endDate, currency='USD') {
 
     // For PayPal, end datetime of a reporting interval is inclusive with 1
     // second resolution. So need to add a second for the next interval's start.
-    startDate = chunkDate + 1000;
-  } while (startDate < endDate); // Exit loop if past the end of the report interval.
+    startDate = chunkEndDate + 1000;
+  } while (startDate <= endDate); // Exit loop if past the end of the report interval.
 
   // Get balance as of the end date, save to output.
   const url = main_buildUrl(PAYPAL_BASEURL + '/v1/reporting/balances', {
