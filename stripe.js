@@ -135,7 +135,7 @@ function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
       ofx += ofx_makeTxn(
         "FEE",
         date,
-        amountFee,
+        -amountFee,
         txn.id + '-1',
         'Stripe processing fees',
         'for:' + src.id ?? ti.transaction_id
