@@ -36,7 +36,7 @@ Here are the reasons why this solution is better than importing CSV files into Q
      file. If you need to keep track of fees as expenditures, you can't just import the net amount - you
      need to have the fee payment listed on a separate line of the CSV file so that it's imported as a
      separate transaction. This requires manually editing the CSV files or writing your own tool to do so.
-     Statement Manager can optionally set to produce separate transactions for you, using 'gross' mode.
+     Statement Manager can optionally be set to produce separate transactions for you (use 'gross' mode).
 
   6. Stripe does not offer any way to download all balance-affecting transactions in a single CSV file.
      You have to download payments in one file, and payouts (transfers to your linked bank account) in a
