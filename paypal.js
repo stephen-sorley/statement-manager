@@ -51,6 +51,9 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  *   startDate: datetime where the report begins.
  *   endDate: datetime where the report ends (exclusive). Default: current time
  *   currency: only report txns & balances done in this currency. Default: USD
+ *   mode: 'gross' or 'net' (default is 'gross')
+ *     gross: gross payment amount and total fees are reported as two separate transactions.
+ *     net: the net amount of the payment (gross - fees) is reported as one transaction.
  * 
  * Returns: {
  *   reportDate: data current as of this date
@@ -64,7 +67,10 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  * Returns 'null' if the start date was so new that PayPal doesn't have data
  * available yet. PayPal's publishing interval may be up to 3 hours.
  */
-function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
+function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mode='gross') {
+  
+  const isNet = mode === 'net';
+
   /*
     OFX reports: time interval DOES NOT include endDate.
     PayPal: time interval DOES include endDate, with 1 second resolution.
@@ -105,6 +111,7 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     const code = ti.transaction_event_code;
     const amountGross = Number(ti.transaction_amount.value);
     const amountFee = ti.fee_amount ? Number(ti.fee_amount.value) : 0;
+    const amountNet = amountGross + amountFee;
     const txnTypeName = paypal_ofxTxnTypeName_(code, amountGross);
 
     let name;
@@ -149,13 +156,13 @@ function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     ofx += ofx_makeTxn(
       paypal_ofxTxnCode_(code, amountGross),
       date,
-      amountGross,
+      isNet? amountNet : amountGross,
       ti.transaction_id + '-' + code,
       name,
       memo.join(' // ')
     );
 
-    if (amountFee != 0) {
+    if (!isNet && amountFee != 0) {
       ofx += ofx_makeTxn(
         "FEE",
         date,

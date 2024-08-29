@@ -47,6 +47,9 @@ const STRIPE_REPORT = 'ending_balance_reconciliation.summary.1';
  *   startDate: datetime where the report begins (inclusive).
  *   endDate: datetime where the report ends (exclusive). Default: current time
  *   currency: only report txns & balances done in this currency. Default: USD
+ *   mode: 'gross' or 'net' (default is 'gross')
+ *     gross: gross payment amount and total fees are reported as two separate transactions.
+ *     net: the net amount of the payment (gross - fees) is reported as one transaction.
  * 
  * Returns: {
  *   reportDate: data current as of this date
@@ -60,7 +63,9 @@ const STRIPE_REPORT = 'ending_balance_reconciliation.summary.1';
  * Returns 'null' if the start date was so new that Stripe doesn't have data
  * available yet. Stripe's publishing interval may be up to 24 hours.
  */
-function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
+function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mode='gross') {
+  
+  const isNet = mode === 'net';
   
   res = stripe_getTransactions_(
     startDate,
@@ -96,6 +101,7 @@ function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     const date = txn.created * 1000;
     const amountGross = txn.amount / 100;
     const amountFee = txn.fee / 100;
+    const amountNet = txn.net / 100;
 
     let memo = [];
 
@@ -125,13 +131,13 @@ function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD') {
     ofx += ofx_makeTxn(
       stripe_ofxTxnCode_(txn.reporting_category, amountGross),
       date,
-      amountGross,
+      isNet? amountNet : amountGross,
       txn.id,
       txn.description ?? txn.object,
       memo.join(' // ')
     );
 
-    if (amountFee != 0) {
+    if (!isNet && amountFee != 0) {
       ofx += ofx_makeTxn(
         "FEE",
         date,

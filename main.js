@@ -5,17 +5,21 @@
 
 // comma-separated list of email addresses.
 // (REQUIRED)
-const RECIPIENTS_KEY = "email_recipients_list";
+const RECIPIENTS_KEY = 'email_recipients_list';
 
 // Three letter ISO currency code that you wish to produce reports in.
 // ex: "USD", "CNY", etc.
 // (OPTIONAL - defaults to USD)
-const CURRENCY_KEY = "currency";
+const CURRENCY_KEY = 'currency';
+
+// Mode to produce reports in. 'gross' or 'net'
+// (OPTIONAL - defaults to 'gross')
+const MODE_KEY = 'mode';
 
 // stores the start date of the next SincePrevious report for a given target.
 // key is prefixed by target name - paypal, stripe
 // (AUTO-GENERATED)
-const SINCE_PREV_START_KEY = "_since_previous_startdate";
+const SINCE_PREV_START_KEY = '_since_previous_startdate';
 
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -110,6 +114,8 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
 
   const currency = ps.getProperty(CURRENCY_KEY) || 'USD';
 
+  const mode = ps.getProperty(MODE_KEY) || 'gross';
+
   const recipients = ps.getProperty(RECIPIENTS_KEY);
   if (!recipients) {
     throw new Error(
@@ -125,12 +131,12 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
   let targetUrl;
   switch(target) {
     case 'paypal':
-      res = paypal_makeReportOfx(startDate, endDate, currency);
+      res = paypal_makeReportOfx(startDate, endDate, currency, mode);
       targetUrl = 'https://paypal.com/mep/dashboard';
       targetColor = '#003087';
       break;
     case 'stripe':
-      res = stripe_makeReportOfx(startDate, endDate, currency);
+      res = stripe_makeReportOfx(startDate, endDate, currency, mode);
       targetUrl = 'https://dashboard.stripe.com';
       targetColor = '#635BFF';
       break;
