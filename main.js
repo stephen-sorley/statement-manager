@@ -13,7 +13,7 @@ const RECIPIENTS_KEY = 'email_recipients_list';
 const CURRENCY_KEY = 'currency';
 
 // Mode to produce reports in. 'gross' or 'net'
-// (OPTIONAL - defaults to 'gross')
+// (OPTIONAL - defaults to 'net')
 const MODE_KEY = 'mode';
 
 // stores the start date of the next SincePrevious report for a given target.
@@ -114,7 +114,7 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
 
   const currency = ps.getProperty(CURRENCY_KEY) || 'USD';
 
-  const mode = ps.getProperty(MODE_KEY) || 'gross';
+  const mode = ps.getProperty(MODE_KEY) || 'net';
 
   const recipients = ps.getProperty(RECIPIENTS_KEY);
   if (!recipients) {

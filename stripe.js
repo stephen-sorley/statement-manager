@@ -47,7 +47,7 @@ const STRIPE_REPORT = 'ending_balance_reconciliation.summary.1';
  *   startDate: datetime where the report begins (inclusive).
  *   endDate: datetime where the report ends (exclusive). Default: current time
  *   currency: only report txns & balances done in this currency. Default: USD
- *   mode: 'gross' or 'net' (default is 'gross')
+ *   mode: 'gross' or 'net' (default is 'net')
  *     gross: gross payment amount and total fees are reported as two separate transactions.
  *     net: the net amount of the payment (gross - fees) is reported as one transaction.
  * 
@@ -63,7 +63,7 @@ const STRIPE_REPORT = 'ending_balance_reconciliation.summary.1';
  * Returns 'null' if the start date was so new that Stripe doesn't have data
  * available yet. Stripe's publishing interval may be up to 24 hours.
  */
-function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mode='gross') {
+function stripe_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mode='net') {
   
   const isNet = mode === 'net';
   

@@ -51,7 +51,7 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  *   startDate: datetime where the report begins.
  *   endDate: datetime where the report ends (exclusive). Default: current time
  *   currency: only report txns & balances done in this currency. Default: USD
- *   mode: 'gross' or 'net' (default is 'gross')
+ *   mode: 'gross' or 'net' (default is 'net')
  *     gross: gross payment amount and total fees are reported as two separate transactions.
  *     net: the net amount of the payment (gross - fees) is reported as one transaction.
  * 
@@ -67,7 +67,7 @@ const PAYPAL_MAX_INTERVAL_ms = 31 * 24 * 60 * 60 * 1000; // 31 days
  * Returns 'null' if the start date was so new that PayPal doesn't have data
  * available yet. PayPal's publishing interval may be up to 3 hours.
  */
-function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mode='gross') {
+function paypal_makeReportOfx(startDate, endDate=Date.now(), currency='USD', mode='net') {
   
   const isNet = mode === 'net';
 
