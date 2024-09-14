@@ -161,7 +161,8 @@ function main_doReport_(targetPretty, startDate, endDate=Date.now()) {
   const endDatePretty = main_prettyDate_(res.endDate, tz);
   const reportDatePretty = main_prettyDate_(res.reportDate, tz);
 
-  const money = new Intl.NumberFormat(Session.getActiveUserLocale(), {
+  const locale = Session.getActiveUserLocale() || 'en-US';
+  const money = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency
   });
